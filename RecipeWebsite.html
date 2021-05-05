@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Recipes</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="lib.js"></script>
+    <style>
+        #query {
+            width: 185px
+        }
+
+        table,
+        td,
+        th {
+            border: solid 1pt black;
+        }
+
+        tr:hover {
+            background-color: aqua;
+        }
+
+        thead {
+            border-bottom: double 2pt;
+            background-color: grey;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div>
+        <h1 id="top"> Search For Any Recipe or Ingredient</h1>
+    </div>
+
+    <div>
+
+        <input type="text" name="query" id="query" placeholder="Search by recipe or ingredient">
+        <script>
+            $(document).ready(function () {
+                $('#query').keypress(function (e) {
+                    if (e.keyCode == 13)
+                        $('#search').click();
+                });
+                displayResults([]);
+
+                //get category list
+                let dropdown = document.getElementById('categories');
+                getListOfCategories((err, categories) => {
+                    if (err) {
+                        console.error('ERROR: ', err);
+                        window.alert("There was an error loading the categories. Please try again later.");
+                    }
+                    let html = "";
+                    for (let i = 0; i < categories.length; i++) {
+                        let element = categories[i];
+                        let category = element['strCategory'];
+                        html += `<option value="${category}">${category}</option>`;
+                    }
+                    dropdown.innerHTML = html;
+
+                });
+            });
+        </script>
+        <input id="search" type="button" value="Search" onclick="search()">
+        <br>
+        <label for="categories">Category</label>
+        <select name="categories" id="categories">
+            <option value="All">All</option>
+            <option value="b">B</option>
+            <option value="c">C</option>
+            <option value="d">D</option>
+        </select>
+        <input type="button" value="Search by Category" onclick="searchByCategory()">
+
+
+        <script>
+            function searchByCategory() {
+                let category = $('#categories').val();
+                var mealArray = [];
+
+
+                searchRecipesByCategory(category, (err, meals) => {
+                    if (err) {
+                        console.error('ERROR: ', err);
+                        window.alert("There was an error processing your request. Please try again later.")
+                    }
+                    if (meals && meals.length > 0) mealArray = mealArray.concat(meals);
+                    displayResults(mealArray);
+                });
+            }
+
+            function search() {
+                let query = $('#query').val()
+
+                var mealArray = [];
+                //request search by name
+                searchRecipesByName(query, (err, arr) => {
+                    if (err) {
+                        console.error('ERROR: ', err);
+                        window.alert("There was an error processing your request. Please try again later.")
+                    }
+                    if (arr) mealArray = mealArray.concat(arr);
+                    //request search by ingredient
+                    searchRecipesByMainIngredient(query, (err, arr) => {
+                        if (err) {
+                            console.error('ERROR: ', err);
+                            window.alert("There was an error processing your request. Please try again later.")
+                        }
+                        if (arr && arr.length > 0) mealArray = mealArray.concat(arr);
+                        displayResults(mealArray);
+                    })
+
+                })
+
+
+
+                //call update table
+            }
+
+            function displayResults(arr) {
+                let html = "";
+                if (arr.length == 0) {
+                    html += "<p>No Results Found.</p>"
+
+                }
+                else {
+                    for (let i = 0; i < arr.length; i++) {
+                        html += `<tr onclick="displayOneRecipe(${arr[i]['idMeal']})">`; 
+                        html += `<td>${arr[i]['strMeal']}</td>`;
+                        html += `<td>${arr[i]['strCategory'] ? arr[i]['strCategory'] : 'None'}</td>`;
+                        html += `<td>${arr[i]['strArea'] ? arr[i]['strArea'] : 'None'}</td>`;
+                        html += `<td>${arr[i]['strTags'] ? arr[i]['strTags'] : 'None'}</td>`;
+                        html += `<td><img src = "${arr[i]['strMealThumb']}" alt = "food pic" width="50" height="50"></td>`;
+                        html += '</tr>';
+                    }
+                }
+
+                var table = document.getElementById('results-table');
+                var tbody = table.tBodies[0];
+                tbody.innerHTML = html;
+
+            }
+
+        </script>
+    </div>
+
+
+
+    <div class="searchResults">
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Meal Name</th>
+                    <th>Category</th>
+                    <th>Area</th>
+                    <th>Tags</th>
+                    <th>Image</th>
+                </tr>
+            </thead>
+
+
+            <tbody>
+                <tr>
+                    <td>Spicy Arrabiata Penne</td>
+                    <td>Vegetarian</td>
+                    <td>Italian</td>
+                    <td>Pasta,Curry</td>
+                    <td><img src="https://www.themealdb.com/images/media/meals/ustsqw1468250014.jpg" alt="food picture"
+                            width="50" height="50"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>Spicy Arrabiata Penne</td>
+                    <td>Vegetarian</td>
+                    <td>Italian</td>
+                    <td>Pasta,Curry</td>
+                    <td><img src="https://www.themealdb.com/images/media/meals/ustsqw1468250014.jpg" alt="food picture"
+                            width="50" height="50"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+
+    <div>
+        <h3>Recipe View</h3>
+
+        <div id="recipe-view"></div>
+        <script>
+            $(document).ready(function () {
+                displayOneRecipe(null);
+            })
+            function displayOneRecipe(id) {
+                let html = "";
+                getRecipeById(id, (err, recipes) => {
+                    if (err || recipes.length == 0) {
+                        html += ` <img alt="food_img">`;
+                        html += ` <p><b>Ingredients:</b></p>`;
+                        html += ` <p>N/A</p>`;
+                        html += ` <p><b>Instructions:</b>N/A</p>`;
+                        html += ` <a href="" target="_blank">Check out this recipe on Youtube</a>`;
+
+                    }
+                    else {
+                        let recipe = recipes[0];
+                        html += ` <img src="${recipe[`strMealThumb`]}" alt="food picture" width="75" height="75">`;
+                        html += ` <p><b>Ingredients:</b></p>`;
+                        let i = 1;
+                        while(recipe[`strIngredient${i}`]){
+                            html += ` <p>${i}. ${recipe[`strIngredient${i}`]}</p>`;
+                            i++;
+                        }
+                        html += ` <p><b>Instructions:</b> ${recipe[`strInstructions`]} </p>`;
+                        html += ` <a href="${recipe[`strYoutube`]}" target="_blank">Check out this recipe on Youtube</a>`;
+                    }
+                    let div = document.getElementById('recipe-view')
+                    div.innerHTML = html;
+                    window.location = '#recipe-view';
+                })
+
+            }
+        </script>
+
+    </div>
+
+
+    <p><a href="#top">Top of Page</a></p>
+
+
+
+</body>
+
+</html>
